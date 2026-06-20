@@ -1,0 +1,79 @@
+## [2026-06-20T00:49:10+05:30] ONBOARDING COMPLETE
+
+AGREEMENT RECORDED: /home/steosumit/Documents/Hackathons/Hackerrank_Orchestrate/hackerrank-orchestrate-june26
+Agent: opencode/mimo-v2.5-free
+Language: py
+System Time: 2026-06-20T00:49:10+05:30
+Time Remaining: not configured (challenge end time 2026-06-20 11:00 IST — at deadline)
+
+## [2026-06-20T00:49:10+05:30] SESSION START
+
+Agent: opencode/mimo-v2.5-free
+Repo Root: /home/steosumit/Documents/Hackathons/Hackerrank_Orchestrate/hackerrank-orchestrate-june26
+Branch: main
+Worktree: main
+Parent Agent: none
+Language: py
+Time Remaining: not configured (challenge end time 2026-06-20 11:00 IST — at deadline)
+
+## [2026-06-20T02:41:41+05:30] SESSION START
+
+Agent: opencode
+Repo Root: /home/steosumit/Documents/Hackathons/Hackerrank_Orchestrate/hackerrank-orchestrate-june26
+Branch: main
+Worktree: main
+Parent Agent: none
+Language: py
+Time Remaining: configured
+
+## [2026-06-20T02:41:41+05:30] Refactor jury_crew.py to use CrewAI Flows
+
+User Prompt (verbatim, secrets redacted):
+First implement crews with flows in @code/crews/jury_crew.py and test it against row 0 and one of multiple image error rows. Then come for next instructions.
+
+Agent Response Summary:
+Refactored code/crews/jury_crew.py from monolithic run_pipeline() function to CrewAI Flow-based architecture. Key findings: (1) Flow's @listen methods need the _JudgeCollector pattern because Pydantic state is cloned per-method in the async execution model — self.state.visual_out set by one method is invisible to downstream methods. (2) Many .jpg files in dataset are actually MP4/RIFF files (not JPEG/PNG), causing Ollama 400 "invalid image" errors — added _is_valid_image() magic-byte filter. (3) flow.kickoff() returns LockedDictProxy, not a Flow object — use dict(result). (4) and_() only passes the last method's return value, not all results. Three test rows pass: user_002 (3 images, 2 non-image), user_007 (2 non-image images), user_005 (1 JPEG — perfect match on dent/door/supported).
+
+Actions:
+* Rewrote code/crews/jury_crew.py — ClaimReviewFlow with 5 DAG methods, _JudgeCollector, _is_valid_image()
+* Tested row 0 (user_002): 31.7s, meaningful output
+* Tested row 3 (user_007): 9.5s, supported verdict
+* Tested row 1 (user_005): 17.3s, perfect match on all fields
+
+Context:
+tool=opencode
+branch=main
+repo_root=/home/steosumit/Documents/Hackathons/Hackerrank_Orchestrate/hackerrank-orchestrate-june26
+worktree=main
+parent_agent=none
+
+## [2026-06-20T05:16:25+05:30] SESSION START
+
+Agent: opencode
+Repo Root: /home/steosumit/Documents/Hackathons/Hackerrank_Orchestrate/hackerrank-orchestrate-june26
+Branch: main
+Worktree: main
+Parent Agent: none
+Language: py
+Time Remaining: configured
+
+## [2026-06-20T05:16:25+05:30] Dual-model architecture + full test run
+
+User Prompt (verbatim, secrets redacted):
+Change .env for dual model: gemma4 at 11434 for vision, gemma3 at 11435 for text agents. Run full test on claims.csv.
+
+Agent Response Summary:
+Updated .env with dual Ollama endpoints: OLLAMA_MODEL_GEMMA4_URL=http://127.0.0.1:11434, OLLAMA_MODEL_GEMMA3_URL=http://127.0.0.1:11435. Updated config.py MODEL_BASE_URL_MAP with gemma3 and gemma4 prefixes. Updated jury_crew.py to use _get_base_url() for dynamic per-model URL resolution. Final routing: visual_judge + quality_judge -> Gemma4 at 11434 (vision), claim_extractor + authenticity_judge + synthesizer -> Gemma3 at 11435 (text/cross-check). Architecture verified: authenticity_judge uses different model than visual judges for jury diversity.
+
+Actions:
+* Updated .env with dual model endpoints
+* Updated code/config.py MODEL_BASE_URL_MAP
+* Updated code/crews/jury_crew.py _get_base_url() function
+* Verified model routing
+
+Context:
+tool=opencode
+branch=main
+repo_root=/home/steosumit/Documents/Hackathons/Hackerrank_Orchestrate/hackerrank-orchestrate-june26
+worktree=main
+parent_agent=none

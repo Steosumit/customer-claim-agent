@@ -1,161 +1,221 @@
-# HackerRank Orchestrate
+# Multi-Modal Evidence Review — HackerRank Orchestrate
 
-Starter repository for the **HackerRank Orchestrate** 24-hour hackathon.
+A multi-agent system that verifies visual evidence for damage claims across **cars**, **laptops**, and **packages**. Built with CrewAI Flows and a dual-model architecture using local Ollama instances.
 
-Build a system that verifies visual evidence for damage claims across three object types: **cars**, **laptops**, and **packages**.
-
-Your system will receive claim conversations, one or more submitted images, user claim history, and minimum evidence requirements. It must decide whether the submitted images support the claim, contradict it, or do not provide enough information.
+![architecture diagram](architecture.png)
 
 Read [`problem_statement.md`](./problem_statement.md) for the full task spec, input/output schema, and allowed values.
 
 ---
 
-## Contents
-
-1. [Repository layout](#repository-layout)
-2. [What you need to build](#what-you-need-to-build)
-3. [Where your code goes](#where-your-code-goes)
-4. [Quickstart](#quickstart)
-5. [Evaluation](#evaluation)
-6. [Chat transcript logging](#chat-transcript-logging)
-7. [Submission](#submission)
-8. [Judge interview](#judge-interview)
-
----
-
-## Repository layout
-
-```text
-.
-├── AGENTS.md                         # Rules for AI coding tools + transcript logging
-├── problem_statement.md              # Full task description and I/O schema
-├── README.md                         # You are here
-├── code/                             # Build your solution here
-│   ├── main.py                       # Suggested terminal entry point
-│   └── evaluation/
-│       └── main.py                   # Suggested evaluation entry point
-└── dataset/
-    ├── sample_claims.csv             # Inputs + expected outputs for development
-    ├── claims.csv                    # Inputs only; run your system on these rows
-    ├── user_history.csv              # Historical claim counts and risk context
-    ├── evidence_requirements.csv     # Minimum image evidence requirements
-    └── images/
-        ├── sample/                   # Images referenced by sample_claims.csv
-        └── test/                     # Images referenced by claims.csv
-```
-
----
-
-## What you need to build
-
-A system that, for each row in `dataset/claims.csv`, produces one row in `output.csv`.
-
-Input fields:
-
-| Column | Meaning |
-|---|---|
-| `user_id` | User submitting the claim; use this to look up `dataset/user_history.csv` |
-| `image_paths` | One or more submitted image paths, separated by semicolons |
-| `user_claim` | Chat transcript describing the issue |
-| `claim_object` | `car`, `laptop`, or `package` |
-
-Required output fields:
-
-| Column | Meaning |
-|---|---|
-| `evidence_standard_met` | Whether the image set is sufficient to evaluate the claim |
-| `evidence_standard_met_reason` | Short reason for the evidence decision |
-| `risk_flags` | Semicolon-separated risk flags, or `none` |
-| `issue_type` | Visible issue type |
-| `object_part` | Relevant object part |
-| `claim_status` | `supported`, `contradicted`, or `not_enough_information` |
-| `claim_status_justification` | Concise explanation grounded in the image evidence |
-| `supporting_image_ids` | Image IDs supporting the decision, or `none` |
-| `valid_image` | Whether the image set is usable for automated review |
-| `severity` | `none`, `low`, `medium`, `high`, or `unknown` |
-
-Hard requirements:
-
-- Must read the provided CSV files and local images.
-- Must produce `output.csv` with the exact schema in `problem_statement.md`.
-- Must include an evaluation workflow
-- Must avoid hardcoded test labels or file-specific answers.
-
-Beyond that you are free to bring your own approach: VLMs, LLMs, structured prompting, rule layers, batching, caching, evaluation pipelines, model comparison, or anything else.
-
----
-
-## Where your code goes
-
-All of your work belongs in [`code/`](./code/). The repo ships with empty starter files that you can grow into your full solution.
-
-Suggested conventions:
-
-- Put your main runnable solution in `code/main.py`, or document your own entry point clearly.
-- Put evaluation code under `code/evaluation/` or an `evaluation/` folder included in your final `code.zip`.
-- Write final predictions to `output.csv`.
-
----
-
-## Quickstart
-
-Clone this repository:
+## Quick Start
 
 ```bash
-git clone git@github.com:interviewstreet/hackerrank-orchestrate-june26.git
+git clone <repo-url>
 cd hackerrank-orchestrate-june26
+
+# Create virtual environment
+python3.12 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install crewai crewai-tools pyyaml python-dotenv requests
+
+# Configure .env (see Setup section below)
+cp .env.example .env  # or create manually
+
+# Run the system
+python code/main.py
 ```
 
-You are free to use any language or runtime. Python, JavaScript, and TypeScript are all reasonable choices.
+Produces `output.csv` in the repo root.
 
 ---
 
-## Evaluation
+## Setup
 
-The evaluation report should include:
+### Prerequisites
 
-- metrics on `dataset/sample_claims.csv`
-- at least two strategies, prompts, or model configurations compared
-- the final strategy used for `output.csv`
-- operational analysis covering model calls, token usage, image usage, approximate cost, runtime, and TPM/RPM considerations
+- Python 3.12 (Python 3.14 is incompatible with CrewAI dependencies)
+- [Ollama](https://ollama.ai) running locally
+- ~8 GB RAM for running both models concurrently
+
+### Ollama Configuration
+
+Two Ollama instances run in parallel on different ports:
+
+| Instance | Port | Model | Purpose |
+|----------|------|-------|---------|
+| Primary | `11434` | `gemma4:31b-cloud` | Vision analysis (images) |
+| Secondary | `11435` | `gemma3:27b-cloud` | Text processing (extraction, synthesis) |
+
+Start the second instance in a separate terminal:
+
+```bash
+OLLAMA_HOST=127.0.0.1:11435 ollama serve
+```
+
+Pull the required models:
+
+```bash
+ollama pull gemma4:31b-cloud
+ollama pull gemma3:27b-cloud
+```
+
+### Environment Variables (`.env`)
+
+```env
+# Ollama endpoints
+OLLAMA_MODEL_GEMMA4_URL=http://127.0.0.1:11434
+OLLAMA_MODEL_GEMMA3_URL=http://127.0.0.1:11435
+
+# Text agents — Gemma3 (port 11435)
+MODEL_CLAIM_EXTRACTOR=ollama/gemma3:27b-cloud
+MODEL_SYNTHESIZER=ollama/gemma3:27b-cloud
+
+# Vision agents — Gemma4 (port 11434)
+MODEL_VISUAL_JUDGE=ollama/gemma4:31b-cloud
+MODEL_QUALITY_JUDGE=ollama/gemma4:31b-cloud
+
+# Cross-check agent — Gemma3 (different model for jury diversity)
+MODEL_AUTHENTICITY_JUDGE=ollama/gemma3:27b-cloud
+```
+
+### Running
+
+```bash
+source venv/bin/activate
+python code/main.py
+```
+
+For evaluation on sample data:
+
+```bash
+python code/evaluation/main.py --max-rows 20
+```
 
 ---
 
-## Chat transcript logging
+## Approach
 
-This repo ships with an `AGENTS.md` that modern AI coding tools may read. It instructs the tool to append conversation turns to a shared log file:
+### Problem
 
-| Platform | Path |
-|---|---|
-| macOS / Linux | `$HOME/hackerrank_orchestrate/log.txt` |
-| Windows | `%USERPROFILE%\hackerrank_orchestrate\log.txt` |
+Given a claim conversation, submitted images, user history, and evidence requirements, determine whether the images support, contradict, or fail to prove the damage claim.
 
-You will upload this log as your chat transcript at submission time. The chat transcript means your conversation with the AI coding tool you used to build the system. It is not the runtime logs, reasoning trace, or conversation history produced by the claim-verification agent you are building.
+### Architecture: Parallel Jury with Synthesis
 
-If you use multiple AI tools, include the relevant conversation logs from all of them in the same transcript file. Separate each tool's section with a clear divider and label it with the tool name.
+The system uses a **3-phase pipeline** orchestrated by CrewAI Flows:
 
-Never paste secrets into the chat. If secrets are needed, use environment variables.
+```
+Phase 1: Claim Extraction (Gemma3 — text-only)
+    Parse conversation → issue_type, object_part, claim_description
+                        │
+         ┌──────────────┼──────────────┐
+         ▼              ▼              ▼
+   ┌───────────┐  ┌───────────┐  ┌───────────────┐
+   │  Visual   │  │  Quality  │  │ Authenticity  │
+   │  Judge    │  │  Judge    │  │    Judge      │
+   │ (Gemma4)  │  │ (Gemma4)  │  │  (Gemma3)     │
+   │           │  │           │  │               │
+   │ Analyze   │  │ Check     │  │ Cross-check   │
+   │ images    │  │ image     │  │ for           │
+   │ for       │  │ quality   │  │ manipulation  │
+   │ damage    │  │ & validity│  │ & mismatches  │
+   └─────┬─────┘  └─────┬─────┘  └───────┬───────┘
+         │              │                 │
+         └──────────────┼─────────────────┘
+                        │  and_() gate (waits for all 3)
+                        ▼
+Phase 3: Synthesis (Gemma3 — text-only)
+    Merge all jury outputs → final verdict
+    Aggregate risk_flags from all judges
+```
+
+### Why Two Models?
+
+| Model | Role | Rationale |
+|-------|------|-----------|
+| **Gemma4 31b** | Visual judges | Vision-capable, analyzes submitted images for damage evidence |
+| **Gemma3 27b** | Extraction, synthesis, authenticity cross-check | Text-only, provides independent "second opinion" to reduce correlated errors |
+
+The **authenticity judge** uses a different model than the visual judges. This adds **jury diversity** — it cross-checks the vision model's findings independently, reducing the chance of systematic bias from a single model.
+
+### Key Design Decisions
+
+1. **Direct Ollama API for vision** — CrewAI's Ollama provider routes through an OpenAI-compatible endpoint that doesn't support image input. Vision agents call Ollama's native `/api/chat` endpoint directly with base64-encoded images.
+
+2. **`_JudgeCollector` pattern** — CrewAI Flows clones Pydantic state per-method during async execution. A thread-safe module-level collector (`flow_id` → `{key: value}`) bypasses this state isolation so the synthesis step can read outputs from parallel vision judges.
+
+3. **Magic-byte image filtering** — Many `.jpg` files in the dataset are actually MP4/RIFF video containers that Ollama rejects. `_is_valid_image()` checks for JPEG (`ff d8`) or PNG (`89 50 4e 47`) file headers before sending.
+
+4. **Retry with exponential backoff** — Transient Ollama errors are retried up to 2 times with exponential backoff.
+
+5. **Prompt injection defense** — The authenticity judge detects instruction-like text in claims (e.g., "ignore all previous instructions") and flags `text_instruction_present` in risk_flags.
+
+### Evaluation Results
+
+Tested on `dataset/sample_claims.csv` (20 labeled rows):
+
+| Field | Accuracy |
+|-------|----------|
+| object_part | 85% |
+| evidence_standard_met | 75% |
+| claim_status | 65% |
+| issue_type | 50% |
+| valid_image | 45% |
+| severity | 40% |
+| **Overall** | **60%** |
+
+Runtime: ~550s for 20 rows (~27.5s/row).
+
+---
+
+## Repository Layout
+
+```
+.
+├── AGENTS.md                         # AI coding tool rules + transcript logging
+├── problem_statement.md              # Full task description and I/O schema
+├── README.md                         # You are here
+├── .env                              # Model endpoints and API keys (not committed)
+├── code/
+│   ├── main.py                       # Batch runner entry point
+│   ├── config.py                     # Loads .env + YAML, resolves model URLs
+│   ├── config/
+│   │   ├── agents.yaml               # Agent definitions (role, goal, model)
+│   │   └── tasks.yaml                # Task definitions with structured prompts
+│   ├── data/
+│   │   ├── loader.py                 # CSV loading, ClaimRow/ClaimContext dataclasses
+│   │   └── writer.py                 # output.csv writer (exact 14-column schema)
+│   ├── crews/
+│   │   └── jury_crew.py              # ClaimReviewFlow + helpers + run_pipeline()
+│   └── evaluation/
+│       ├── main.py                   # Evaluation entry point
+│       ├── eval_results.json         # Per-field accuracy metrics
+│       └── report.md                 # Human-readable eval report
+├── output.csv                        # Generated predictions (44 rows)
+└── dataset/
+    ├── sample_claims.csv             # Labeled examples for dev/eval
+    ├── claims.csv                    # Input-only rows (final submission)
+    ├── user_history.csv              # Historical claim data
+    ├── evidence_requirements.csv     # Minimum evidence rules
+    └── images/
+        ├── sample/                   # Images for sample_claims.csv
+        └── test/                     # Images for claims.csv
+```
 
 ---
 
 ## Submission
 
-Submit the following files as instructed by HackerRank:
+1. **Code zip**:
+   ```bash
+   zip -r code.zip code/ README.md problem_statement.md AGENTS.md
+   ```
+2. **Predictions CSV**: `output.csv` (44 rows, one per claim in `claims.csv`)
+3. **Chat transcript**: `$HOME/hackerrank_orchestrate/log.txt`
 
-1. **Code zip**: zip your runnable solution, README, prompts/configs, and evaluation folder. Exclude virtualenvs, `node_modules`, build artifacts, and unnecessary generated files.
-2. **Predictions CSV**: your final `output.csv` for all rows in `dataset/claims.csv`.
-3. **Chat transcript**: the `log.txt` from the path in [Chat transcript logging](#chat-transcript-logging).
-
-Before submitting, confirm:
-
-- `output.csv` has one row per row in `dataset/claims.csv`.
-- `output.csv` has the exact required columns in the exact required order.
-- Your evaluation files are included in `code.zip`.
-
----
-
-## Judge interview
-
-After submission, the AI Judge may ask about your approach, implementation decisions, model usage, evaluation strategy, and how you used AI while building the solution.
-
-Be prepared to explain your solution in detail.
+Before submitting, verify:
+- `output.csv` has exactly 44 data rows + 1 header
+- Columns match the exact schema in `problem_statement.md`
+- Evaluation files are included in `code.zip`
