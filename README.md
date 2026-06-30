@@ -1,4 +1,4 @@
-# Multi-Modal Evidence Review — HackerRank Orchestrate
+# Multi-Modal Evidence Review — HackerRank Orchestrate Submission
 
 A multi-agent system that verifies visual evidence for damage claims across **cars**, **laptops**, and **packages**. Built with CrewAI Flows and a dual-model architecture using local Ollama instances.
 
@@ -206,16 +206,6 @@ Runtime: ~550s for 20 rows (~27.5s/row).
 
 ---
 
-## Submission
+## Submission Result
 
-1. **Code zip**:
-   ```bash
-   zip -r code.zip code/ README.md problem_statement.md AGENTS.md
-   ```
-2. **Predictions CSV**: `output.csv` (44 rows, one per claim in `claims.csv`)
-3. **Chat transcript**: `$HOME/hackerrank_orchestrate/log.txt`
-
-Before submitting, verify:
-- `output.csv` has exactly 44 data rows + 1 header
-- Columns match the exact schema in `problem_statement.md`
-- Evaluation files are included in `code.zip`
+Ranked #604 worldwide 
